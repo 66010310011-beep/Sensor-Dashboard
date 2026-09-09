@@ -1,5 +1,5 @@
 const SPREADSHEET_ID = '1yDm2wWPT9PqG6p1KkWEML54Yv-erxtPE-MDePwAezss';
-const SHEET_NAME = 'Data';
+const SHEET_NAME = 'Sensor Dashboard';
 
 // อุณหภูมิที่ถือว่าสูงเกินกำหนด
 const TEMP_LIMIT = 35;
