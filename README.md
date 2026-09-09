@@ -1,4 +1,3 @@
-# Sensor-Dashboard
 # Sensor Dashboard
 
 รายวิชา 0306422
