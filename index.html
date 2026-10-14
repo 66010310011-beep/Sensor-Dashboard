@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Sensor Dashboard</title>
+
+  <!-- Chart.js สำหรับสร้างกราฟ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+
+    /* =========================
+       พื้นฐาน
+    ========================= */
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f6fa;
+      color: #333;
+    }
+
+
+    /* =========================
+       Header
+    ========================= */
+
+    header {
+      background: #1976d2;
+      color: white;
+      padding: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+
+    header h1 {
+      margin: 0 0 8px 0;
+    }
+
+    #user {
+      font-size: 14px;
+    }
+
+
+    /* =========================
+       Container
+    ========================= */
+
+    .container {
+      width: 90%;
+      max-width: 1100px;
+      margin: 30px auto;
+    }
+
+
+    /* =========================
+       Card
+    ========================= */
+
+    .card {
+      background: white;
+      padding: 25px;
+      margin-bottom: 25px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      color: #1976d2;
+    }
+
+
+    /* =========================
+       Form
+    ========================= */
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #1976d2;
+    }
+
+
+    /* =========================
+       Button
+    ========================= */
+
+    .btn {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      margin-top: 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background: #125ca1;
+    }
+
+
+    /* =========================
+       Message
+    ========================= */
+
+    #message {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    .success {
+      color: green;
+    }
+
+    .error {
+      color: red;
+    }
+
+
+    /* =========================
+       Honeypot
+       ช่องนี้จะไม่ให้คนทั่วไปเห็น
+    ========================= */
+
+    .honeypot {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      opacity: 0;
+      height: 0;
+      width: 0;
+      overflow: hidden;
+    }
+
+
+    /* =========================
+       Dashboard
+    ========================= */
+
+    .dashboard-info {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .info-box {
+      padding: 20px;
+      border-radius: 10px;
+      color: white;
+      text-align: center;
+    }
+
+    .blue {
+      background: #2196f3;
+    }
+
+    .red {
+      background: #f44336;
+    }
+
+    .green {
+      background: #4caf50;
+    }
+
+    .info-number {
+      font-size: 30px;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+
+    /* =========================
+       Table
+    ========================= */
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+
+    th {
+      background: #1976d2;
+      color: white;
+    }
+
+    tr:hover {
+      background: #f5f5f5;
+    }
+
+
+    /* อุณหภูมิเกินกำหนด */
+
+    .danger {
+      background: #ffcccc !important;
+      color: #d00000;
+      font-weight: bold;
+    }
+
+
+    /* =========================
+       Pagination
+    ========================= */
+
+    .pagination {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .pagination button {
+      border: none;
+      background: #1976d2;
+      color: white;
+      padding: 8px 13px;
+      margin: 3px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .pagination button:hover {
+      background: #125ca1;
+    }
+
+    .pagination .active {
+      background: #333;
+    }
+
+
+    /* =========================
+       Responsive
+    ========================= */
+
+    @media (max-width: 700px) {
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-info {
+        grid-template-columns: 1fr;
+      }
+
+      .container {
+        width: 95%;
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+  <!-- =========================
+       HEADER
+  ========================= -->
+
+  <header>
+
+    <h1>🌡️ Sensor Dashboard</h1>
+
+    <div id="user">
+      กำลังตรวจสอบผู้ใช้งาน...
+    </div>
+
+  </header>
+
+
+
+  <div class="container">
+
+
+    <!-- =========================
+         FORM
+    ========================= -->
+
+    <div class="card">
+
+      <h2>📝 กรอกข้อมูล Sensor</h2>
+
+      <div class="form-grid">
+
+
+        <!-- Temperature -->
+
+        <div>
+
+          <label for="temperature">
+            อุณหภูมิ (°C)
+          </label>
+
+          <input
+            type="number"
+            id="temperature"
+            step="0.1"
+            placeholder="เช่น 28.5">
+
+        </div>
+
+
+        <!-- Humidity -->
+
+        <div>
+
+          <label for="humidity">
+            ความชื้น (%)
+          </label>
+
+          <input
+            type="number"
+            id="humidity"
+            step="0.1"
+            min="0"
+            max="100"
+            placeholder="เช่น 65">
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =========================
+           HONEYPOT
+      ========================= -->
+
+      <!--
+        ช่องนี้ซ่อนจากผู้ใช้งานปกติ
+
+        ถ้า Bot เข้ามากรอก Form
+        มักจะกรอกช่องนี้ด้วย
+
+        ถ้ามีข้อมูลในช่องนี้
+        ระบบจะไม่บันทึกข้อมูล
+      -->
+
+      <div class="honeypot">
+
+        <label for="website">
+          Website
+        </label>
+
+        <input
+          type="text"
+          id="website"
+          name="website"
+          autocomplete="off"
+          tabindex="-1">
+
+      </div>
+
+
+
+      <!-- ปุ่มบันทึก -->
+
+      <button
+        class="btn"
+        onclick="saveData()">
+
+        💾 บันทึกข้อมูล
+
+      </button>
+
+
+
+      <!-- Message -->
+
+      <div id="message"></div>
+
+    </div>
+
+
+
+    <!-- =========================
+         DASHBOARD
+    ========================= -->
+
+    <div class="card">
+
+      <h2>📊 Dashboard</h2>
+
+
+      <!-- กล่องสรุปข้อมูล -->
+
+      <div class="dashboard-info">
+
+
+        <div class="info-box blue">
+
+          <div>
+            จำนวนข้อมูล
+          </div>
+
+          <div
+            class="info-number"
+            id="totalData">
+
+            0
+
+          </div>
+
+        </div>
+
+
+        <div class="info-box red">
+
+          <div>
+            อุณหภูมิสูงสุด
+          </div>
+
+          <div
+            class="info-number"
+            id="maxTemp">
+
+            0°C
+
+          </div>
+
+        </div>
+
+
+        <div class="info-box green">
+
+          <div>
+            ค่าอุณหภูมิกำหนด
+          </div>
+
+          <div
+            class="info-number"
+            id="tempLimit">
+
+            35°C
+
+          </div>
+
+        </div>
+
+
+      </div>
+
+
+      <!-- กราฟ -->
+
+      <canvas id="sensorChart"></canvas>
+
+    </div>
+
+
+
+    <!-- =========================
+         TABLE
+    ========================= -->
+
+    <div class="card">
+
+      <h2>📋 ข้อมูล Sensor</h2>
+
+
+      <div class="table-container">
+
+        <table>
+
+          <thead>
+
+            <tr>
+
+              <th>วันที่</th>
+
+              <th>เวลา</th>
+
+              <th>อุณหภูมิ</th>
+
+              <th>ความชื้น</th>
+
+              <th>ผู้บันทึก</th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody id="dataTable">
+
+            <!-- JavaScript จะนำข้อมูลมาใส่ตรงนี้ -->
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+
+      <!-- Pagination -->
+
+      <div
+        class="pagination"
+        id="pagination">
+
+      </div>
+
+    </div>
+
+
+  </div>
+
+
+
+<script>
+
+
+/* =====================================================
+   ตัวแปร
+===================================================== */
+
+let allData = [];
+
+let currentPage = 1;
+
+const rowsPerPage = 5;
+
+let temperatureLimit = 35;
+
+let chart = null;
+
+
+
+/* =====================================================
+   เมื่อเปิดหน้าเว็บ
+===================================================== */
+
+window.onload = function() {
+
+
+  // --------------------------------
+  // ดึงข้อมูลผู้ใช้
+  // --------------------------------
+
+  google.script.run
+
+    .withSuccessHandler(function(user) {
+
+      document.getElementById("user").innerHTML =
+        "👤 Login: " + user.email;
+
+    })
+
+    .withFailureHandler(function(error) {
+
+      document.getElementById("user").innerHTML =
+        "ไม่สามารถตรวจสอบผู้ใช้งานได้";
+
+    })
+
+    .getUserInfo();
+
+
+
+  // --------------------------------
+  // ดึงค่าขีดจำกัดอุณหภูมิ
+  // --------------------------------
+
+  google.script.run
+
+    .withSuccessHandler(function(limit) {
+
+      temperatureLimit = limit;
+
+      document.getElementById("tempLimit")
+        .innerText = limit + "°C";
+
+    })
+
+    .getTempLimit();
+
+
+
+  // --------------------------------
+  // โหลดข้อมูล
+  // --------------------------------
+
+  loadData();
+
+};
+
+
+
+/* =====================================================
+   บันทึกข้อมูล
+===================================================== */
+
+function saveData() {
+
+
+  // อ่านค่าจาก Form
+
+  const temperature =
+    document.getElementById("temperature").value;
+
+  const humidity =
+    document.getElementById("humidity").value;
+
+
+  // อ่าน Honeypot
+
+  const website =
+    document.getElementById("website").value;
+
+
+
+  // --------------------------------
+  // ตรวจสอบข้อมูลว่าง
+  // --------------------------------
+
+  if (
+    temperature === "" ||
+    humidity === ""
+  ) {
+
+    showMessage(
+      "❌ กรุณากรอกข้อมูลให้ครบ",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+
+  // --------------------------------
+  // ตรวจสอบอุณหภูมิ
+  // --------------------------------
+
+  if (
+    Number(temperature) < -50 ||
+    Number(temperature) > 100
+  ) {
+
+    showMessage(
+      "❌ ค่าอุณหภูมิไม่ถูกต้อง",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+
+  // --------------------------------
+  // ตรวจสอบความชื้น
+  // --------------------------------
+
+  if (
+    Number(humidity) < 0 ||
+    Number(humidity) > 100
+  ) {
+
+    showMessage(
+      "❌ ค่าความชื้นต้องอยู่ระหว่าง 0-100%",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+
+  // --------------------------------
+  // เตรียมข้อมูล
+  // --------------------------------
+
+  const data = {
+
+    temperature: Number(temperature),
+
+    humidity: Number(humidity),
+
+    website: website
+
+  };
+
+
+
+  // --------------------------------
+  // ส่งข้อมูลไป Code.gs
+  // --------------------------------
+
+  google.script.run
+
+    .withSuccessHandler(function(result) {
+
+
+      showMessage(
+        "✅ " + result.message,
+        "success"
+      );
+
+
+      // ล้าง Form
+
+      document.getElementById(
+        "temperature"
+      ).value = "";
+
+
+      document.getElementById(
+        "humidity"
+      ).value = "";
+
+
+      // โหลดข้อมูลใหม่
+
+      loadData();
+
+    })
+
+
+    .withFailureHandler(function(error) {
+
+      showMessage(
+        "❌ " + error.message,
+        "error"
+      );
+
+    })
+
+
+    .saveData(data);
+
+}
+
+
+
+/* =====================================================
+   แสดงข้อความ
+===================================================== */
+
+function showMessage(message, type) {
+
+  const messageBox =
+    document.getElementById("message");
+
+
+  messageBox.innerHTML = message;
+
+  messageBox.className = type;
+
+}
+
+
+
+/* =====================================================
+   โหลดข้อมูลจาก Google Sheets
+===================================================== */
+
+function loadData() {
+
+
+  google.script.run
+
+    .withSuccessHandler(function(data) {
+
+
+      allData = data;
+
+
+      // กลับไปหน้าแรก
+
+      currentPage = 1;
+
+
+      // แสดงตาราง
+
+      renderTable();
+
+
+      // สร้างกราฟ
+
+      renderChart();
+
+
+      // อัปเดตข้อมูลสรุป
+
+      updateDashboard();
+
+    })
+
+
+    .withFailureHandler(function(error) {
+
+      showMessage(
+        "❌ ไม่สามารถโหลดข้อมูลได้",
+        "error"
+      );
+
+    })
+
+
+    .getData();
+
+}
+
+
+
+/* =====================================================
+   Dashboard Summary
+===================================================== */
+
+function updateDashboard() {
+
+
+  // จำนวนข้อมูล
+
+  document.getElementById(
+    "totalData"
+  ).innerText = allData.length;
+
+
+
+  // ถ้าไม่มีข้อมูล
+
+  if (allData.length === 0) {
+
+    document.getElementById(
+      "maxTemp"
+    ).innerText = "0°C";
+
+    return;
+
+  }
+
+
+
+  // หาอุณหภูมิสูงสุด
+
+  const temperatures =
+    allData.map(function(row) {
+
+      return Number(row.temperature);
+
+    });
+
+
+  const max =
+    Math.max(...temperatures);
+
+
+
+  document.getElementById(
+    "maxTemp"
+  ).innerText = max + "°C";
+
+}
+
+
+
+/* =====================================================
+   แสดงข้อมูลใน Table
+===================================================== */
+
+function renderTable() {
+
+
+  const table =
+    document.getElementById("dataTable");
+
+
+  // ล้างข้อมูลเก่า
+
+  table.innerHTML = "";
+
+
+
+  // คำนวณข้อมูลของหน้านั้น
+
+  const start =
+    (currentPage - 1) * rowsPerPage;
+
+
+  const end =
+    start + rowsPerPage;
+
+
+  const pageData =
+    allData.slice(start, end);
+
+
+
+  // ถ้าไม่มีข้อมูล
+
+  if (pageData.length === 0) {
+
+    table.innerHTML = `
+
+      <tr>
+
+        <td colspan="5">
+
+          ยังไม่มีข้อมูล
+
+        </td>
+
+      </tr>
+
+    `;
+
+    return;
+
+  }
+
+
+
+  // สร้างแต่ละแถว
+
+  pageData.forEach(function(row) {
+
+
+    const tr =
+      document.createElement("tr");
+
+
+
+    // ตรวจสอบอุณหภูมิ
+
+    const dangerClass =
+      Number(row.temperature) > temperatureLimit
+        ? "danger"
+        : "";
+
+
+
+    tr.innerHTML = `
+
+      <td>
+        ${row.date}
+      </td>
+
+      <td>
+        ${row.time}
+      </td>
+
+      <td class="${dangerClass}">
+        ${row.temperature} °C
+      </td>
+
+      <td>
+        ${row.humidity} %
+      </td>
+
+      <td>
+        ${row.user}
+      </td>
+
+    `;
+
+
+
+    table.appendChild(tr);
+
+  });
+
+
+
+  // สร้าง Pagination
+
+  renderPagination();
+
+}
+
+
+
+/* =====================================================
+   Pagination
+===================================================== */
+
+function renderPagination() {
+
+
+  const pagination =
+    document.getElementById("pagination");
+
+
+  pagination.innerHTML = "";
+
+
+
+  // จำนวนหน้า
+
+  const totalPages =
+    Math.ceil(
+      allData.length / rowsPerPage
+    );
+
+
+
+  // ไม่มีข้อมูล
+
+  if (totalPages <= 1) {
+
+    return;
+
+  }
+
+
+
+  // สร้างปุ่มแต่ละหน้า
+
+  for (
+    let i = 1;
+    i <= totalPages;
+    i++
+  ) {
+
+
+    const button =
+      document.createElement("button");
+
+
+    button.innerText = i;
+
+
+
+    // หน้าปัจจุบัน
+
+    if (i === currentPage) {
+
+      button.classList.add("active");
+
+    }
+
+
+
+    // เมื่อกด
+
+    button.onclick = function() {
+
+
+      currentPage = i;
+
+
+      renderTable();
+
+
+      // เลื่อนกลับไปที่ตาราง
+
+      document
+        .querySelector(".card:last-child")
+        .scrollIntoView({
+          behavior: "smooth"
+        });
+
+    };
+
+
+
+    pagination.appendChild(button);
+
+  }
+
+}
+
+
+
+/* =====================================================
+   สร้างกราฟ
+===================================================== */
+
+function renderChart() {
+
+
+  const ctx =
+    document
+      .getElementById("sensorChart")
+      .getContext("2d");
+
+
+
+  // ถ้ามีกราฟเก่า ให้ลบก่อน
+
+  if (chart !== null) {
+
+    chart.destroy();
+
+  }
+
+
+
+  // กลับลำดับข้อมูล
+  // เพื่อให้ข้อมูลเก่าอยู่ด้านซ้าย
+
+  const chartData =
+    allData
+      .slice()
+      .reverse();
+
+
+
+  // Labels
+
+  const labels =
+    chartData.map(function(row) {
+
+      return row.time;
+
+    });
+
+
+
+  // Temperature
+
+  const temperatures =
+    chartData.map(function(row) {
+
+      return Number(row.temperature);
+
+    });
+
+
+
+  // Humidity
+
+  const humidities =
+    chartData.map(function(row) {
+
+      return Number(row.humidity);
+
+    });
+
+
+
+  // สร้าง Chart
+
+  chart = new Chart(
+    ctx,
+    {
+
+      type: "line",
+
+
+      data: {
+
+        labels: labels,
+
+
+        datasets: [
+
+
+          // ---------------------------
+          // Temperature
+          // ---------------------------
+
+          {
+
+            label: "Temperature (°C)",
+
+            data: temperatures,
+
+            borderColor: "red",
+
+            backgroundColor:
+              "rgba(255, 0, 0, 0.1)",
+
+            borderWidth: 2,
+
+            tension: 0.3,
+
+            fill: false
+
+          },
+
+
+          // ---------------------------
+          // Humidity
+          // ---------------------------
+
+          {
+
+            label: "Humidity (%)",
+
+            data: humidities,
+
+            borderColor: "blue",
+
+            backgroundColor:
+              "rgba(0, 0, 255, 0.1)",
+
+            borderWidth: 2,
+
+            tension: 0.3,
+
+            fill: false
+
+          }
+
+        ]
+
+      },
+
+
+      options: {
+
+        responsive: true,
+
+
+        plugins: {
+
+          legend: {
+
+            display: true
+
+          }
+
+        },
+
+
+        scales: {
+
+          y: {
+
+            beginAtZero: true
+
+          }
+
+        }
+
+      }
+
+    }
+  );
+
+}
+
+</script>
+
+
+</body>
+
+</html>
