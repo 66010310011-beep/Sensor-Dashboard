@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sensor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f3f6fa;color:#333}
+    header{background:#1976d2;color:#fff;padding:20px;box-shadow:0 2px 5px #0002}
+    header h1{margin:0 0 8px}
+    #user{font-size:14px}
+    .container{width:90%;max-width:1100px;margin:28px auto}
+    .card{background:#fff;padding:24px;margin-bottom:22px;border-radius:12px;box-shadow:0 2px 8px #00000012}
+    h2{margin-top:0;color:#1976d2}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    label{display:block;font-weight:bold;margin-bottom:6px}
+    input{width:100%;padding:12px;border:1px solid #ccc;border-radius:6px;font-size:16px}
+    .btn{background:#1976d2;color:#fff;border:0;padding:12px 22px;margin-top:18px;border-radius:6px;font-size:16px;cursor:pointer}
+    .btn:disabled{opacity:.6;cursor:wait}
+    #message{margin-top:14px;font-weight:bold;white-space:pre-wrap}
+    .success{color:#188038}.error{color:#c5221f}
+    .dashboard-info{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+    .info-box{padding:18px;border-radius:10px;color:#fff;text-align:center}
+    .blue{background:#2196f3}.red{background:#f44336}.green{background:#4caf50}
+    .info-number{font-size:29px;font-weight:bold;margin-top:6px}
+    .table-container{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:11px;border-bottom:1px solid #ddd;text-align:center}
+    th{background:#1976d2;color:#fff}
+    tr:hover{background:#f5f5f5}
+    .danger{background:#ffcccc!important;color:#b00020;font-weight:bold}
+    .pagination{text-align:center;margin-top:18px}
+    .pagination button{border:0;background:#1976d2;color:#fff;padding:8px 13px;margin:3px;border-radius:5px;cursor:pointer}
+    .pagination .active{background:#333}
+    .muted{color:#666;font-size:13px}
+    @media(max-width:700px){.form-grid,.dashboard-info{grid-template-columns:1fr}.container{width:95%}.card{padding:17px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>🌡️ Sensor Dashboard</h1>
+  <div id="user">กำลังเชื่อมต่อ...</div>
+</header>
+
+<main class="container">
+  <section class="card">
+    <h2>📝 กรอกข้อมูล Sensor</h2>
+    <div class="form-grid">
+      <div><label for="temperature">อุณหภูมิ (°C)</label><input id="temperature" type="number" step="0.1" min="-50" max="100" placeholder="เช่น 28.5"></div>
+      <div><label for="humidity">ความชื้น (%)</label><input id="humidity" type="number" step="0.1" min="0" max="100" placeholder="เช่น 65"></div>
+    </div>
+    <button class="btn" id="saveButton" onclick="saveData()">💾 บันทึกข้อมูล</button>
+    <div id="message" role="status"></div>
+    <p class="muted">ข้อมูลจะถูกบันทึกลง Google Sheets ผ่าน Google Apps Script</p>
+  </section>
+
+  <section class="card">
+    <h2>📊 Dashboard</h2>
+    <div class="dashboard-info">
+      <div class="info-box blue"><div>จำนวนข้อมูล</div><div class="info-number" id="totalData">0</div></div>
+      <div class="info-box red"><div>อุณหภูมิสูงสุด</div><div class="info-number" id="maxTemp">0°C</div></div>
+      <div class="info-box green"><div>ค่าอุณหภูมิกำหนด</div><div class="info-number" id="tempLimit">35°C</div></div>
+    </div>
+    <canvas id="sensorChart"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>📋 ข้อมูล Sensor</h2>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>วันที่</th><th>เวลา</th><th>อุณหภูมิ</th><th>ความชื้น</th><th>ผู้บันทึก</th></tr></thead>
+        <tbody id="dataTable"><tr><td colspan="5">กำลังโหลด...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </section>
+</main>
+
+<script>
+/*
+  1) Deploy Code.gs as a Google Apps Script Web App.
+  2) Paste the deployed URL ending in /exec below.
+*/
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz4XBASLmnMxTUGbL1ofxL7YWLOpgJkfXQGJnmRivPqTdZx3cUw4u_lxe3OO_8pDzxWvQ/exec";
+
+let allData = [];
+let currentPage = 1;
+const rowsPerPage = 5;
+let temperatureLimit = 35;
+let chart = null;
+
+function apiCall(params) {
+  return new Promise((resolve, reject) => {
+    if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("PASTE_YOUR_")) {
+      reject(new Error("ยังไม่ได้ตั้งค่า GAS_WEB_APP_URL ในไฟล์ index.html"));
+      return;
+    }
+    const callbackName = "gasCallback_" + Date.now() + "_" + Math.floor(Math.random()*100000);
+    const query = new URLSearchParams({...params, callback: callbackName});
+    const script = document.createElement("script");
+    let finished = false;
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      delete window[callbackName];
+      script.remove();
+      clearTimeout(timer);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("หมดเวลารอ Google Apps Script ตรวจสอบ URL และสิทธิ์การ Deploy"));
+    }, 20000);
+    window[callbackName] = (result) => {
+      cleanup();
+      if (result && result.ok) resolve(result);
+      else reject(new Error((result && result.message) || "Google Apps Script ส่งข้อผิดพลาดกลับมา"));
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("เรียก Google Apps Script ไม่สำเร็จ ตรวจสอบ URL /exec และการ Deploy"));
+    };
+    script.src = GAS_WEB_APP_URL + (GAS_WEB_APP_URL.includes("?") ? "&" : "?") + query.toString();
+    document.body.appendChild(script);
+  });
+}
+
+function showMessage(message, type) {
+  const box = document.getElementById("message");
+  box.textContent = message;
+  box.className = type || "";
+}
+
+async function loadInitialData() {
+  try {
+    const [userResult, limitResult, dataResult] = await Promise.all([
+      apiCall({action:"user"}),
+      apiCall({action:"limit"}),
+      apiCall({action:"list"})
+    ]);
+    document.getElementById("user").textContent = "👤 ผู้ใช้งาน: " + (userResult.email || "ผู้เข้าชมเว็บไซต์");
+    temperatureLimit = Number(limitResult.limit) || 35;
+    document.getElementById("tempLimit").textContent = temperatureLimit + "°C";
+    allData = Array.isArray(dataResult.data) ? dataResult.data : [];
+    currentPage = 1;
+    renderTable();
+    renderChart();
+    updateDashboard();
+    showMessage("", "");
+  } catch (err) {
+    document.getElementById("user").textContent = "เชื่อมต่อ Google Apps Script ไม่สำเร็จ";
+    showMessage("❌ " + err.message, "error");
+    document.getElementById("dataTable").innerHTML = '<tr><td colspan="5">โหลดข้อมูลไม่ได้</td></tr>';
+  }
+}
+
+async function saveData() {
+  const temperature = document.getElementById("temperature").value;
+  const humidity = document.getElementById("humidity").value;
+  if (temperature === "" || humidity === "") return showMessage("❌ กรุณากรอกข้อมูลให้ครบ", "error");
+  if (!Number.isFinite(Number(temperature)) || Number(temperature) < -50 || Number(temperature) > 100)
+    return showMessage("❌ ค่าอุณหภูมิต้องอยู่ระหว่าง -50 ถึง 100°C", "error");
+  if (!Number.isFinite(Number(humidity)) || Number(humidity) < 0 || Number(humidity) > 100)
+    return showMessage("❌ ค่าความชื้นต้องอยู่ระหว่าง 0 ถึง 100%", "error");
+
+  const button = document.getElementById("saveButton");
+  button.disabled = true;
+  showMessage("กำลังบันทึกข้อมูล...", "");
+  try {
+    const result = await apiCall({
+      action:"save",
+      temperature:String(Number(temperature)),
+      humidity:String(Number(humidity))
+    });
+    showMessage("✅ " + result.message, "success");
+    document.getElementById("temperature").value = "";
+    document.getElementById("humidity").value = "";
+    await loadInitialData();
+  } catch (err) {
+    showMessage("❌ บันทึกไม่สำเร็จ: " + err.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function updateDashboard() {
+  document.getElementById("totalData").textContent = allData.length;
+  const validTemps = allData.map(r => Number(r.temperature)).filter(Number.isFinite);
+  document.getElementById("maxTemp").textContent = (validTemps.length ? Math.max(...validTemps) : 0) + "°C";
+}
+
+function renderTable() {
+  const table = document.getElementById("dataTable");
+  table.replaceChildren();
+  const start = (currentPage - 1) * rowsPerPage;
+  const pageData = allData.slice(start, start + rowsPerPage);
+  if (!pageData.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 5; td.textContent = "ยังไม่มีข้อมูล";
+    tr.appendChild(td); table.appendChild(tr);
+    renderPagination(); return;
+  }
+  pageData.forEach(row => {
+    const tr = document.createElement("tr");
+    const values = [row.date, row.time, Number(row.temperature) + " °C", Number(row.humidity) + " %", row.user || ""];
+    values.forEach((value, index) => {
+      const td = document.createElement("td");
+      td.textContent = value == null ? "" : String(value);
+      if (index === 2 && Number(row.temperature) > temperatureLimit) td.className = "danger";
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  renderPagination();
+}
+
+function renderPagination() {
+  const box = document.getElementById("pagination");
+  box.replaceChildren();
+  const totalPages = Math.ceil(allData.length / rowsPerPage);
+  if (totalPages <= 1) return;
+  for (let i = 1; i <= totalPages; i++) {
+    const button = document.createElement("button");
+    button.textContent = i;
+    if (i === currentPage) button.className = "active";
+    button.onclick = () => { currentPage = i; renderTable(); };
+    box.appendChild(button);
+  }
+}
+
+function renderChart() {
+  const canvas = document.getElementById("sensorChart");
+  if (chart) chart.destroy();
+  const data = allData.slice().reverse();
+  chart = new Chart(canvas.getContext("2d"), {
+    type:"line",
+    data:{
+      labels:data.map(r => r.time || r.date || ""),
+      datasets:[
+        {label:"Temperature (°C)",data:data.map(r=>Number(r.temperature)),borderColor:"red",backgroundColor:"rgba(255,0,0,.1)",borderWidth:2,tension:.3},
+        {label:"Humidity (%)",data:data.map(r=>Number(r.humidity)),borderColor:"blue",backgroundColor:"rgba(0,0,255,.1)",borderWidth:2,tension:.3}
+      ]
+    },
+    options:{responsive:true,plugins:{legend:{display:true}},scales:{y:{beginAtZero:true}}}
+  });
+}
+
+window.addEventListener("DOMContentLoaded", loadInitialData);
+</script>
+</body>
+</html>
